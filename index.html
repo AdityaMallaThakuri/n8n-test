@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="config.js"></script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #ffffff;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Page content ── */
+    .hero {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #111;
+      margin-bottom: 0.75rem;
+    }
+
+    .hero p {
+      font-size: 1rem;
+      color: #666;
+    }
+
+    /* ── Floating toggle button ── */
+    #chat-toggle {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      z-index: 1000;
+    }
+
+    #chat-toggle:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 28px rgba(124, 58, 237, 0.55);
+    }
+
+    #chat-toggle svg {
+      width: 26px;
+      height: 26px;
+      fill: #fff;
+      transition: opacity 0.15s ease;
+    }
+
+    /* ── Chat panel ── */
+    #chat-panel {
+      position: fixed;
+      bottom: 92px;
+      right: 24px;
+      width: 350px;
+      height: 500px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 999;
+      transform: scale(0.92) translateY(12px);
+      transform-origin: bottom right;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.2s ease;
+    }
+
+    #chat-panel.open {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── Header ── */
+    .chat-header {
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .chat-header-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-avatar {
+      width: 32px;
+      height: 32px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-avatar svg {
+      width: 18px;
+      height: 18px;
+      fill: #fff;
+    }
+
+    .chat-header h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .chat-header-sub {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.75);
+      margin-top: 1px;
+    }
+
+    #close-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 6px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    #close-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    #close-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ── Messages ── */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
+
+    #messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #messages::-webkit-scrollbar-thumb {
+      background: #ddd;
+      border-radius: 4px;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      max-width: 80%;
+      animation: msgIn 0.2s ease;
+    }
+
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .message.user .bubble {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.bot .bubble {
+      background: #f1f1f1;
+      color: #1a1a1a;
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.bot .bubble.error {
+      background: #fff1f1;
+      color: #c0392b;
+    }
+
+    /* ── Typing indicator ── */
+    #typing-indicator {
+      display: none;
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    #typing-indicator.visible {
+      display: flex;
+    }
+
+    .typing-bubble {
+      background: #f1f1f1;
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      padding: 12px 16px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      background: #aaa;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%            { transform: translateY(-5px); }
+    }
+
+    /* ── Input area ── */
+    .chat-input-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-top: 1px solid #ebebeb;
+      flex-shrink: 0;
+      background: #fff;
+    }
+
+    #user-input {
+      flex: 1;
+      border: 1.5px solid #e2e2e2;
+      border-radius: 24px;
+      padding: 9px 16px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+      color: #1a1a1a;
+      background: #fafafa;
+      transition: border-color 0.2s ease;
+      resize: none;
+    }
+
+    #user-input::placeholder {
+      color: #b0b0b0;
+    }
+
+    #user-input:focus {
+      border-color: #7c3aed;
+      background: #fff;
+    }
+
+    #send-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    #send-btn:hover {
+      transform: scale(1.08);
+    }
+
+    #send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #send-btn svg {
+      width: 17px;
+      height: 17px;
+      fill: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Page content -->
+  <div class="hero">
+    <h1>Welcome to My AI Assistant</h1>
+    <p>Ask me anything using the chat below.</p>
+  </div>
+
+  <!-- Floating toggle button -->
+  <button id="chat-toggle" aria-label="Open chat">
+    <!-- Chat bubble icon (shown when closed) -->
+    <svg id="icon-open" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 10H6V10h12v2zm0-3H6V7h12v2z"/>
+    </svg>
+    <!-- X icon (shown when open) -->
+    <svg id="icon-close" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+    </svg>
+  </button>
+
+  <!-- Chat panel -->
+  <div id="chat-panel" role="dialog" aria-label="AI Assistant chat">
+    <div class="chat-header">
+      <div class="chat-header-title">
+        <div class="header-avatar">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+          </svg>
+        </div>
+        <div>
+          <h2>AI Assistant</h2>
+          <div class="chat-header-sub">Always here to help</div>
+        </div>
+      </div>
+      <button id="close-btn" aria-label="Close chat">
+        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="messages">
+      <div class="message bot">
+        <div class="bubble">Hi there! 👋 How can I help you today?</div>
+      </div>
+      <div id="typing-indicator">
+        <div class="typing-bubble">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <input
+        id="user-input"
+        type="text"
+        placeholder="Type a message…"
+        autocomplete="off"
+        maxlength="2000"
+      />
+      <button id="send-btn" aria-label="Send message">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ── Session ID (generated once per page load) ──
+    const SESSION_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+    const WEBHOOK_URL = window.APP_CONFIG?.webhookUrl;
+    if (!WEBHOOK_URL) console.error('config.js missing or webhookUrl not set.');
+
+    // ── Element refs ──
+    const chatPanel     = document.getElementById('chat-panel');
+    const chatToggle    = document.getElementById('chat-toggle');
+    const closeBtn      = document.getElementById('close-btn');
+    const messagesEl    = document.getElementById('messages');
+    const userInput     = document.getElementById('user-input');
+    const sendBtn       = document.getElementById('send-btn');
+    const typingEl      = document.getElementById('typing-indicator');
+    const iconOpen      = document.getElementById('icon-open');
+    const iconClose     = document.getElementById('icon-close');
+
+    let isOpen = false;
+
+    // ── Toggle panel ──
+    function toggleChat() {
+      isOpen = !isOpen;
+      chatPanel.classList.toggle('open', isOpen);
+      iconOpen.style.display  = isOpen ? 'none'  : 'block';
+      iconClose.style.display = isOpen ? 'block' : 'none';
+      if (isOpen) {
+        setTimeout(() => userInput.focus(), 250);
+        scrollToBottom();
+      }
+    }
+
+    chatToggle.addEventListener('click', toggleChat);
+    closeBtn.addEventListener('click', toggleChat);
+
+    // ── Scroll helpers ──
+    function scrollToBottom() {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // ── Append a message bubble ──
+    function appendMessage(text, role, isError = false) {
+      const wrapper = document.createElement('div');
+      wrapper.className = `message ${role}`;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble' + (isError ? ' error' : '');
+      bubble.textContent = text;
+
+      wrapper.appendChild(bubble);
+
+      // Insert before the typing indicator
+      messagesEl.insertBefore(wrapper, typingEl);
+      scrollToBottom();
+    }
+
+    // ── Show / hide typing indicator ──
+    function setTyping(visible) {
+      typingEl.classList.toggle('visible', visible);
+      scrollToBottom();
+    }
+
+    // ── Send message ──
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text || sendBtn.disabled) return;
+
+      userInput.value = '';
+      sendBtn.disabled = true;
+      appendMessage(text, 'user');
+      setTyping(true);
+
+      try {
+        const res = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatInput: text, sessionId: SESSION_ID }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+
+        // Support both array and object responses
+        const payload = Array.isArray(data) ? data[0] : data;
+        const reply = payload?.output
+          ?? payload?.text
+          ?? payload?.message
+          ?? payload?.response
+          ?? 'I received your message but could not find a reply.';
+
+        setTyping(false);
+        appendMessage(reply, 'bot');
+      } catch (err) {
+        console.error('Chat error:', err);
+        setTyping(false);
+        appendMessage('Sorry, something went wrong. Please try again.', 'bot', true);
+      } finally {
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    // ── Event listeners ──
+    sendBtn.addEventListener('click', sendMessage);
+
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
